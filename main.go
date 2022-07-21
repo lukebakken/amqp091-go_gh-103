@@ -4,39 +4,45 @@ import (
 	"context"
 	"fmt"
 	"github.com/rabbitmq/amqp091-go"
-	// "sync"
+	"sync"
 	"time"
 )
 
-// var wg sync.WaitGroup
-
-func amqp(i int, ctx context.Context) {
+func amqp(i int, wg *sync.WaitGroup, ctx context.Context) {
 	fmt.Println("starting connection: ", i)
 	c, err := amqp091.Dial("amqp://guest:guest@127.0.0.1:5672/")
 	if err != nil {
 		panic("connection error")
 	}
 
+	fmt.Println("giving connection time to establish: ", i)
+	time.Sleep(time.Second * 5)
+
 	<-ctx.Done()
 
-	fmt.Println("closing connection: ", i)
-	// wg.Done()
 	c.Close()
+	fmt.Println("done closing connection: ", i)
+
+	wg.Done()
+	fmt.Println("after wg.Done(): ", i)
 }
 
 const n = 16
 
 func main() {
+	var wg sync.WaitGroup
+	wg.Add(n)
+
 	ctx, cancel := context.WithCancel(context.Background())
-	// wg.Add(n)
 	for i := 0; i < n; i++ {
-		go amqp(i, ctx)
+		go amqp(i, &wg, ctx)
 	}
 
-	fmt.Println("cancel start")
 	cancel()
 	fmt.Println("cancel done")
-	// wg.Wait()
+
+	wg.Wait()
+	fmt.Println("wait done")
 
 	fmt.Println("sleeping")
 	time.Sleep(time.Hour)
